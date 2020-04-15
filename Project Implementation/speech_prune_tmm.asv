@@ -1,0 +1,129 @@
+clear all;
+close all;
+clc;
+[y, Fs] = wavread('ba.wav');
+%Framing
+T=length(y)./Fs;            %Duration of sound file=Number of samples/Fs; Fs=8 KHz
+t=20*10^(-3) ;              %Duration of each frame
+f=(T/t) ;                  %Number of frames
+s=round(length(y)/f)  ;     %Number of samples per each frame
+% p=zeros(f,s); 
+% P=zeros(f,s);
+% for i=1:f
+%     p(i,:)=y(1+s*(i-1):s*(i));
+% end
+size(y);
+d=y;
+h=[];
+k=1;
+ou=[];
+
+F=[];
+for j=1:160:size(y,1)-1-159
+    k=1;
+    F2=[];
+for freq=500:25:4000
+    if(freq ~=4000)
+        norm=(freq/(8000));
+    else
+        norm=0.49848;
+    end
+sig = 9;
+f5=Gabor1d_i(164,sig,norm,1);
+h(k,:)=f5;
+% freqz(f5);
+% hold on;
+ou(k,:)=conv(f5,d(j:j+159));
+wo=norm*2*pi;
+[AMcom, FMcom] = DESA(ou(k,:),wo);
+size(AMcom);
+F2(k,1)=(sum((AMcom.^2).*FMcom)/sum(AMcom.^2))*(8000/(2*pi));
+k=k+1;
+% freqz(ou);
+% freq_appr2=fft(ou,2000);
+% hn32=fftshift(freq_appr2);
+% figure
+% title('original signal');
+% plot(w4,abs(hn32));
+k;
+end
+F=horzcat(F,F2);
+end
+size(F)
+%%plotting scatter plot
+x_axis=1:1:size(F,2);
+figure;
+for row=1:1:size(F,1)
+    rr=F(row,:);
+    plot(x_axis,rr,':')
+    hold on;
+end
+%imagesc((F))
+%%% pruining of Pyknogram
+pruned_final=[];
+pruned_final2=[];
+for coulmn=1:1:size(F,2)
+    rr=F(:,coulmn);
+    pru=[];
+    pru2=[];
+    for row=1:1:size(F,1)-1
+        if(((rr(row+1,1)-rr(row,1)))<180)
+            pru(row,1)=rr(row,1);
+            pru2(row,1)=rr(row,1);
+        else
+            pru(row,1)=NaN;
+            pru2(row,1)=0;
+        end
+    end
+    pruned_final=horzcat(pruned_final,pru);
+    pruned_final2=horzcat(pruned_final,pru2);
+    
+end
+pruned_final;
+
+size(pruned_final)
+figure;
+ for row=1:1:size(pruned_final,1)
+    rr2=pruned_final(row,:);
+   plot(x_axis,rr2,':')
+    hold on;
+end
+nc = 4;
+th = 500;
+min =500;
+max = 4000;
+dd=size(pruned_final2,2);
+mean_matrix=[];
+cov_matrix=[];
+mean_matrix=initialize_k(pruned_final2)
+
+for j=1:1:dd
+    Y=pruned_final2(:,j);
+    size(Y)
+%[mu_initial, sigma_initial, prior_initial, v_initial]=initialize(Y, nc, th, min, max);
+values=Y';
+%[mu_initial, sigma_initial, prior_initial, v_initial]=initialize(Y, nc,
+[idx,mu_intial] = kmeans(Y,nc);
+mu_intial=sort(mu_intial)
+%mu_intial=[500 1200 2000 3000]';
+sigma_intial=[100 100 100 100]';
+prior_intial=[0.25 0.25 0.25 0.25]';
+v_intial=[10 10 10 10]';
+%%% Finding the estimated mus and estimated sigmas and also intialization
+%% 
+C=4;
+epsilon=1e-6;
+[mu_est, sigma_est, p_est,v_est] = student_t_mixture(values, C,epsilon,mu_intial,sigma_intial,prior_intial,v_intial);
+mean_matrix=horzcat(mean_matrix,mu_est);
+mu_est
+cov_matrix=horzcat(cov_matrix,sigma_est);
+    
+end
+size(pruned_final2)
+size(mean_matrix)
+mean_matrix(1,:)
+for row=1:1:size(mean_matrix,1)
+    rr2=mean_matrix(row,1:20);
+    plot(x_axis,rr2,'--gs')
+    hold on;
+end
